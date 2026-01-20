@@ -27,15 +27,16 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip and install build dependencies
 RUN pip install --upgrade pip setuptools wheel packaging ninja
 
-# Install PaddlePaddle GPU with CUDA 12.x support
-# PaddlePaddle 3.x is required for PaddleOCR-VL
-RUN pip install paddlepaddle-gpu==3.0.0b2 -i https://www.paddlepaddle.org.cn/packages/stable/cu123/
-
-# Install Flash Attention 2 for memory efficiency
+# Install Flash Attention 2 FIRST (before PaddlePaddle overwrites cuDNN)
 # This reduces VRAM from 40GB to ~3GB
 # Using MAX_JOBS=4 to prevent OOM during compilation
 ENV MAX_JOBS=4
 RUN pip install flash-attn --no-build-isolation
+
+# Install PaddlePaddle GPU with CUDA 12.x support
+# PaddlePaddle 3.x is required for PaddleOCR-VL
+# Note: This installs cuDNN 9.x but flash-attn is already compiled
+RUN pip install paddlepaddle-gpu==3.0.0b2 -i https://www.paddlepaddle.org.cn/packages/stable/cu123/
 
 # Install PaddleOCR with doc-parser (includes VL model)
 # The [doc-parser] extra includes all required models for document parsing

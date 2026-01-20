@@ -63,8 +63,20 @@ def setup_model_cache():
         os.environ["PADDLE_HOME"] = MODEL_CACHE_DIR
         os.environ["PADDLEOCR_HOME"] = MODEL_CACHE_DIR
         os.environ["HF_HOME"] = os.path.join(MODEL_CACHE_DIR, "huggingface")
+        os.environ["HF_HUB_CACHE"] = os.path.join(MODEL_CACHE_DIR, "huggingface", "hub")
 
         print(f"[PaddleOCR-VL] Using network volume cache: {MODEL_CACHE_DIR}")
+
+        # Log cached contents for debugging
+        try:
+            cached_items = os.listdir(MODEL_CACHE_DIR)
+            if cached_items:
+                print(f"[PaddleOCR-VL] Cached items: {cached_items}")
+            else:
+                print("[PaddleOCR-VL] Cache is empty - first run will download models")
+        except Exception as e:
+            print(f"[PaddleOCR-VL] Could not list cache: {e}")
+
         return True
     else:
         print("[PaddleOCR-VL] No network volume found, using container storage")

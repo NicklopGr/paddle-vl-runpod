@@ -29,9 +29,10 @@ RUN pip install --upgrade pip
 # PaddlePaddle 3.x is required for PaddleOCR-VL
 RUN pip install paddlepaddle-gpu==3.0.0b2 -i https://www.paddlepaddle.org.cn/packages/stable/cu123/
 
-# Install Flash Attention 2 for memory efficiency
+# Install Flash Attention 2 for memory efficiency (optional)
 # This reduces VRAM from 40GB to ~3GB
-RUN pip install flash-attn --no-build-isolation
+# If it fails, the model will still work but use more VRAM
+RUN pip install flash-attn --no-build-isolation || echo "Flash Attention 2 not installed - will use more VRAM"
 
 # Install PaddleOCR with doc-parser (includes VL model)
 # The [doc-parser] extra includes all required models for document parsing

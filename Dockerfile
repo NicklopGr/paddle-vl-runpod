@@ -29,11 +29,12 @@ RUN pip install --upgrade pip setuptools wheel packaging ninja
 
 # Install Flash Attention 2 FIRST (before PaddlePaddle overwrites cuDNN)
 # This reduces VRAM from 40GB to ~3GB
-# Using MAX_JOBS=4 to prevent OOM during compilation
-# Limit CUDA arch list to Ampere+ to speed flash-attn build
-ENV MAX_JOBS=4
-ENV TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9"
-RUN pip install flash-attn --no-build-isolation
+# Use prebuilt wheels for torch 2.2 + CUDA 12 to avoid long source builds.
+ARG FLASH_ATTN_VERSION=2.7.4.post1
+RUN pip install --no-deps \
+        https://github.com/Dao-AILab/flash-attention/releases/download/v${FLASH_ATTN_VERSION}/flash_attn-${FLASH_ATTN_VERSION}+cu12torch2.2cxx11abiTRUE-cp310-cp310-linux_x86_64.whl \
+    || pip install --no-deps \
+        https://github.com/Dao-AILab/flash-attention/releases/download/v${FLASH_ATTN_VERSION}/flash_attn-${FLASH_ATTN_VERSION}+cu12torch2.2cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
 
 # Install PaddlePaddle GPU with CUDA 12.x support
 # PaddlePaddle 3.x is required for PaddleOCR-VL

@@ -1,17 +1,20 @@
 # PaddleOCR-VL RunPod Serverless Container
 #
-# Hardware Requirements:
-# - With Flash Attention 2: 2.8-3.3 GB VRAM (requires Ampere+ GPU, CC>=8.0)
-# - Without Flash Attention 2: 40-45 GB VRAM (not recommended)
+# Uses official PaddlePaddle image with CUDA 12.6 + cuDNN 9.5
+# This ensures all CUDA/cuDNN dependencies are properly configured.
 #
-# Tested on: RTX 3060/3090, RTX 4090, A10G, A100
-# RunPod recommended: GPU with CC>=8.0 (Ampere architecture or newer)
+# Hardware Requirements:
+# - GPU with compute capability >= 7.0 (Volta or newer)
+# - Recommended: Ampere+ (RTX 30xx, A10G, A100, etc.)
+# - VRAM: ~3-4 GB with Flash Attention, ~40 GB without
+#
+# GPU Driver Requirements: >= 550.54.14 (Linux)
 
-FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
+FROM paddlepaddle/paddle:3.0.0-gpu-cuda12.6-cudnn9.5-trt10.5
 
 WORKDIR /app
 
-# Install system dependencies including build tools for flash-attn
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -19,56 +22,20 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgomp1 \
-    wget \
-    git \
-    ninja-build \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and install build dependencies
-RUN pip install --upgrade pip setuptools wheel packaging ninja
-
-# Install Flash Attention 2 FIRST (before PaddlePaddle overwrites cuDNN)
-# This reduces VRAM from 40GB to ~3GB
-# Use prebuilt wheels for torch 2.2 + CUDA 12 to avoid long source builds.
-ARG FLASH_ATTN_VERSION=2.7.4.post1
-RUN pip install --no-deps \
-        https://github.com/Dao-AILab/flash-attention/releases/download/v${FLASH_ATTN_VERSION}/flash_attn-${FLASH_ATTN_VERSION}+cu12torch2.2cxx11abiTRUE-cp310-cp310-linux_x86_64.whl \
-    || pip install --no-deps \
-        https://github.com/Dao-AILab/flash-attention/releases/download/v${FLASH_ATTN_VERSION}/flash_attn-${FLASH_ATTN_VERSION}+cu12torch2.2cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
-
-# Install PaddlePaddle GPU with CUDA 12.x support
-# PaddlePaddle 3.x is required for PaddleOCR-VL
-# Note: This installs cuDNN 9.x which breaks PyTorch
-RUN pip install paddlepaddle-gpu==3.0.0b2 -i https://www.paddlepaddle.org.cn/packages/stable/cu123/
+# Upgrade pip
+RUN pip install --upgrade pip setuptools wheel
 
 # Install PaddleOCR with doc-parser (includes VL model)
-# The [doc-parser] extra includes all required models for document parsing
+# This provides PaddleOCR-VL document parsing capabilities
 RUN pip install "paddleocr[doc-parser]>=3.1.0"
-
-# Fix NVIDIA library version conflicts
-# PaddlePaddle 3.0 requires cuDNN 9.x - do NOT downgrade to cuDNN 8.x
-# Only reinstall CUDA runtime libraries to match base image (12.1)
-# but keep cuDNN 9 that PaddlePaddle installed
-RUN pip install \
-    nvidia-cuda-nvrtc-cu12==12.1.105 \
-    nvidia-cuda-runtime-cu12==12.1.105 \
-    nvidia-cublas-cu12==12.1.3.1 \
-    nvidia-cusparse-cu12==12.1.0.106 \
-    nvidia-cufft-cu12==11.0.2.54 \
-    nvidia-curand-cu12==10.3.2.106 \
-    nvidia-cusolver-cu12==11.4.5.107 \
-    nvidia-nccl-cu12==2.19.3 \
-    nvidia-nvjitlink-cu12==12.1.105 \
-    --force-reinstall
-
-# Ensure cuDNN 9 is available (PaddlePaddle 3.0 requirement)
-# This installs the proper libcudnn.so.9 that PaddlePaddle needs
-RUN pip install nvidia-cudnn-cu12==9.1.0.70 --force-reinstall
 
 # Install RunPod SDK
 RUN pip install runpod
 
-# Copy handler and warmup helper (run warmup.py on a GPU pod to fill /runpod-volume cache)
+# Copy handler and warmup scripts
 COPY handler.py warmup.py ./
 
 # Set environment variables for optimal performance

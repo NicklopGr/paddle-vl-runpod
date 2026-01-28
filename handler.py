@@ -15,6 +15,8 @@ Input:
         "images_base64": ["base64_encoded_image_1", "base64_encoded_image_2", ...],
         // OR for single image:
         "image_base64": "base64_encoded_image",
+        // Optional: skip handler-side resize (client handles sizing)
+        "skip_resize": false,
         // Optional: warmup-only request to pre-download models
         "warmup": true
     }
@@ -155,8 +157,15 @@ def convert_to_serializable(obj):
         return obj
 
 
-def process_single_image(pipeline, image_base64: str, page_number: int) -> dict:
-    """Process a single image and return markdown + structured output"""
+def process_single_image(pipeline, image_base64: str, page_number: int, skip_resize: bool = False) -> dict:
+    """Process a single image and return markdown + structured output
+
+    Args:
+        pipeline: The PaddleOCR-VL pipeline
+        image_base64: Base64 encoded image
+        page_number: Page number (1-indexed)
+        skip_resize: If True, skip handler-side resize (image already sized by client)
+    """
 
     # Decode base64 image
     image_bytes = base64.b64decode(image_base64)
@@ -166,8 +175,11 @@ def process_single_image(pipeline, image_base64: str, page_number: int) -> dict:
     if image.mode != 'RGB':
         image = image.convert('RGB')
 
-    # Resize for optimal accuracy
-    image = resize_image_if_needed(image, max_dimension=1920)
+    # Resize for optimal accuracy (unless client already handled it)
+    if skip_resize:
+        print(f"[PaddleOCR-VL] Skipping resize, using original {image.size[0]}x{image.size[1]}")
+    else:
+        image = resize_image_if_needed(image, max_dimension=1920)
 
     # Save to temp file (PaddleOCR-VL requires file path)
     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
@@ -283,6 +295,11 @@ def handler(event):
                 "error": "No images provided. Send 'images_base64' array or 'image_base64' string."
             }
 
+        # Check if client wants to skip handler-side resize
+        skip_resize = job_input.get("skip_resize", False)
+        if skip_resize:
+            print(f"[PaddleOCR-VL] skip_resize=True (client handled sizing)")
+
         print(f"[PaddleOCR-VL] Processing {len(images_base64)} page(s)")
 
         # Load pipeline (cached after first call)
@@ -292,7 +309,7 @@ def handler(event):
         pages = []
         for i, img_b64 in enumerate(images_base64):
             page_start = time.time()
-            page_result = process_single_image(pipeline, img_b64, page_number=i + 1)
+            page_result = process_single_image(pipeline, img_b64, page_number=i + 1, skip_resize=skip_resize)
             page_time = time.time() - page_start
             print(f"[PaddleOCR-VL] Page {i + 1} processed in {page_time:.2f}s")
             pages.append(page_result)

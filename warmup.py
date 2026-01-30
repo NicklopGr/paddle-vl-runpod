@@ -35,7 +35,7 @@ def main() -> None:
     start = time.time()
     from paddleocr import PaddleOCRVL
 
-    _ = PaddleOCRVL(model_name="PaddleOCR-VL-1.5-0.9B")
+    _ = PaddleOCRVL(pipeline_version="v1.5")
     elapsed = time.time() - start
     print(f"[Warmup] Models ready in {elapsed:.2f}s")
 

@@ -124,7 +124,7 @@ def load_pipeline():
 
     # Initialize document parsing pipeline
     # This uses PP-DocLayoutV2 + PaddleOCR-VL-1.5-0.9B
-    paddle_vl_pipeline = PaddleOCRVL(pipeline_version="v1.5")
+    paddle_vl_pipeline = PaddleOCRVL()
 
     elapsed = time.time() - start
     print(f"[PaddleOCR-VL] Pipeline loaded in {elapsed:.2f}s")
